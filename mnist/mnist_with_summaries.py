@@ -200,12 +200,12 @@ if __name__ == '__main__':
   parser.add_argument(
       '--data_dir',
       type=str,
-      default='/tmp/tensorflow/mnist/input_data',
+      default='~/data/mnist/',
       help='Directory for storing input data')
   parser.add_argument(
       '--log_dir',
       type=str,
-      default='/tmp/tensorflow/mnist/logs/mnist_with_summaries',
+      default='/tmp/tf/mnist_with_summaries',
       help='Summaries log directory')
   FLAGS, unparsed = parser.parse_known_args()
   tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)

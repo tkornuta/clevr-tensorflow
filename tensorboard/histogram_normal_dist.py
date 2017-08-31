@@ -2,7 +2,7 @@
 # https://stackoverflow.com/questions/35567132/meaning-of-histogram-on-tensorboard
 import tensorflow as tf
 
-log_dir = "/tmp/TF/test_logs"
+log_dir = "/tmp/tf/test_logs"
 
 # Eventually clear the log dir.
 if tf.gfile.Exists(log_dir):
