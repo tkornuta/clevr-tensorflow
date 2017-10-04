@@ -153,7 +153,7 @@ def train_network(g, num_iterations, summary_frequency,  seq_length, batch_size,
 # Start
 
 # Dirs - must be absolute paths!
-LOG_DIR = '/tmp/tf/char_rnn/'
+LOG_DIR = '/tmp/tf/char-static-rnn/'
 # Text file.
 FILE_NAME = "/home/tkornuta/data/tiny-shakespeare/tiny-shakespeare.txt"
 
@@ -176,7 +176,7 @@ g = build_basic_rnn_graph_with_list(HIDDEN_SIZE, vocab_size, BATCH_SIZE, SEQ_LEN
 print("It took", time.time() - t1, "seconds to build the graph.")
 
 # Determine how long to perform the training and how often the test loss on validation batch will be computed. 
-summary_frequency = 5
+summary_frequency = 100
 num_steps = 1e4 
 
 t2 = time.time()
