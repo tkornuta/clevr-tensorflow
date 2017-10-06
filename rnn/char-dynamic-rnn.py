@@ -1,10 +1,5 @@
-"""
-Imports
-"""
 import numpy as np
 import tensorflow as tf
-#%matplotlib inline
-#import matplotlib.pyplot as plt
 import time
 
 from simpleRNNCell import SimpleRNNCell

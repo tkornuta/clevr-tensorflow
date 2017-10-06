@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import time
 
-from simpleRNNCell import SimpleRNNCell
+from simpleLSTMCell import SimpleLSTMCell
 
 
 def build_basic_rnn_graph_with_list(
@@ -15,53 +15,63 @@ def build_basic_rnn_graph_with_list(
     # Just in case...
     tf.reset_default_graph()
 
-    #x = tf.placeholder(tf.int32, [batch_size, seq_length], name='input_placeholder')
-    #y = tf.placeholder(tf.int32, [batch_size, seq_length], name='labels_placeholder')
-    # Create a placeholder for  input text [BATCH_SIZE x SEQ_LENGTH+1] 
-    input_text = tf.placeholder(tf.int32, [batch_size, seq_length+1], name='input_placeholder')
-    # Slice text into x and y of size [BATCH_SIZE x SEQ_LENGTH] (y is "shifted by 1)
-    # Both variables store indices of characters in the "vocabulary"!
-    x = tf.slice(input_text,  [0,  0],  [batch_size, seq_length])
-    y = tf.slice(input_text,  [0,  1],  [batch_size, seq_length])
-    
-    # Create tensor with one-hot encoding [BATCH_SIZE x SEQ_LENGTH x INPUT_SIZE]
-    x_one_hot = tf.one_hot(x, num_classes, dtype=tf.float32)
-    print("x_one_hot =",  x_one_hot.shape)
-    
-    # Create SEQ_LENGTH list of tensors of size  [BATCH_SIZE x SEQ_LENGTH x INPUT_SIZE]
-    # splits = tf.split(x_one_hot, seq_length, 1)
-    
-    # Create SEQ_LENGTH list of tensors of size  [BATCH_SIZE x INPUT_SIZE]
-    rnn_inputs = [tf.squeeze(i,squeeze_dims=[1]) for i in tf.split(x_one_hot, num_or_size_splits=seq_length, axis=1)]
-    print("rnn_inputs =", len(rnn_inputs),  " of shape",  rnn_inputs[0].shape)
+    with tf.name_scope('inputs'):
+        # Create a placeholder for  input text [BATCH_SIZE x SEQ_LENGTH+1] 
+        input_text = tf.placeholder(tf.int32, [batch_size, seq_length+1], name='input_placeholder')
+        # Slice text into x and y of size [BATCH_SIZE x SEQ_LENGTH] (y is "shifted by 1)
+        # Both variables store indices of characters in the "vocabulary"!
+        x = tf.slice(input_text,  [0,  0],  [batch_size, seq_length],  name="inputs")
+        y = tf.slice(input_text,  [0,  1],  [batch_size, seq_length],  name="targets")
+        
+        # Create tensor with one-hot encoding [BATCH_SIZE x SEQ_LENGTH x INPUT_SIZE]
+        x_one_hot_BSI = tf.one_hot(x, num_classes, dtype=tf.float32,  name="embedded_inputs")
+        print("x_one_hot_BSI =",  x_one_hot_BSI.shape)
 
-    # Build static RNN.
-    cell = SimpleRNNCell(hidden_size)
+        # Reorder input [SEQ_LENGTH x BATCH_SIZE x INPUT_SIZE]
+        x_one_hot_SBI = tf.transpose(x_one_hot_BSI, [1, 0, 2])
+        print("x_one_hot_SBI =",  x_one_hot_SBI.shape)
+
+    
+    # Build simple RNN.
+    cell = SimpleLSTMCell(hidden_size)
     init_state = cell.zero_state(batch_size, tf.float32)
-    rnn_outputs, final_state = tf.contrib.rnn.static_rnn(cell, rnn_inputs, initial_state=init_state)
-    # RNN outputs: sequenge SEQ_LENGTH of [BATCH_SIZE x HIDDEN_SIZE]
+
+    # Create dynamic RNN with outputs [BATCH_SIZE x SEQ_LENGTH x HIDDEN_SIZE] (not S x B x H, despite time_major = TRUE !!!)
+    rnn_outputs, final_state = tf.nn.dynamic_rnn(cell, x_one_hot_SBI, initial_state=init_state,  time_major=True)
+    print("rnn_outputs =",  rnn_outputs.shape)
+    print("final_state_c =",  final_state[0].shape)
+    print("final_state_h =",  final_state[1].shape)
+    
+    with tf.name_scope('rnn_outputs'):       
+        # List SEQ_LENGTH of [BATCH_SIZE x HIDDEN_SIZE]
+        rnn_outputs_S_BI = tf.unstack(rnn_outputs, axis=1)
+        print("rnn_outputs_S_BI =", len(rnn_outputs_S_BI),  " of shape",  rnn_outputs_S_BI[0].shape)
 
     # Add logits layer.
     with tf.variable_scope('softmax'):
         W = tf.get_variable('W', [hidden_size, num_classes])
         b = tf.get_variable('b', [num_classes], initializer=tf.constant_initializer(0.0))
-    # Logits: sequenge SEQ_LENGTH of [BATCH_SIZE x HIDDEN_SIZE]
-    logits = [tf.matmul(rnn_output, W) + b for rnn_output in rnn_outputs]
-    # Stack logits [SEQ_LENGTH x BATCH_SIZE x INPUT_SIZE]
-    logits_stack = tf.stack(logits)
-    # Reorder logits [BATCH_SIZE x SEQ_LENGTH x INPUT_SIZE] - as required by sequence_loss
-    logits_ordered = tf.transpose(logits_stack, [1, 0, 2])
-    print("logits_ordered =",   logits_ordered.shape)
-    
-    loss_weights = tf.ones([batch_size, seq_length])
-    # Calculate losses.
-    losses = tf.contrib.seq2seq.sequence_loss(logits_ordered, y, loss_weights)
-    # Calculate mean loss over sequence and batch.
-    total_loss = tf.reduce_mean(losses)
-    train_step = tf.train.AdamOptimizer(learning_rate).minimize(total_loss)
 
-     # Add loss summary.
-    tf.summary.scalar("loss", total_loss)
+    with tf.name_scope('outputs'):
+        # Logits: sequenge SEQ_LENGTH of [BATCH_SIZE x HIDDEN_SIZE]
+        logits_S_BI = [tf.matmul(rnn_output, W) + b for rnn_output in rnn_outputs_S_BI]
+        print("logits_S_BI =", len(logits_S_BI),  " of shape",  logits_S_BI[0].shape)
+        
+        # Stack logits [SEQ_LENGTH x BATCH_SIZE x INPUT_SIZE]
+        logits_SBI = tf.stack(logits_S_BI)
+    
+    with tf.name_scope('loss'):
+        loss_weights = tf.ones([batch_size, seq_length])
+        # Calculate losses.
+        losses = tf.contrib.seq2seq.sequence_loss(logits_SBI, y, loss_weights)
+        # Calculate mean loss over sequence and batch.
+        total_loss = tf.reduce_mean(losses)
+        # Add loss summary.
+        tf.summary.scalar("loss", total_loss)
+
+    with tf.name_scope('optimizer'):
+        train_step = tf.train.AdamOptimizer(learning_rate).minimize(total_loss)
+
 
     # Merge all summaries into a single op
     merged_summary_op = tf.summary.merge_all()
@@ -148,7 +158,7 @@ def train_network(g, num_iterations, summary_frequency,  seq_length, batch_size,
 # Start
 
 # Dirs - must be absolute paths!
-LOG_DIR = '/tmp/tf/char-static-rnn/'
+LOG_DIR = '/tmp/tf/char-dynamic-lstm/'
 # Text file.
 FILE_NAME = "/home/tkornuta/data/tiny-shakespeare/tiny-shakespeare.txt"
 

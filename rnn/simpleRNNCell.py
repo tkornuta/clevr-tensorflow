@@ -1,6 +1,3 @@
-import numpy as np
-import tensorflow as tf
-
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops.rnn_cell_impl import RNNCell
 from tensorflow.python.ops.rnn_cell_impl import _linear
