@@ -155,39 +155,36 @@ def train_network(g, num_iterations, summary_frequency,  seq_length, batch_size,
 
 
 ###########################
-# Start
+if __name__ == "__main__":
+    # Dirs - must be absolute paths!
+    LOG_DIR = '/tmp/tf/char-dynamic-lstm/'
+    # Text file.
+    FILE_NAME = "/home/tkornuta/data/tiny-shakespeare/tiny-shakespeare.txt"
 
-# Dirs - must be absolute paths!
-LOG_DIR = '/tmp/tf/char-dynamic-lstm/'
-# Text file.
-FILE_NAME = "/home/tkornuta/data/tiny-shakespeare/tiny-shakespeare.txt"
+    # Hyperparameters.
+    BATCH_SIZE = 100
+    SEQ_LENGTH = 20
+    HIDDEN_SIZE = 100
 
-# Hyperparameters.
-BATCH_SIZE = 100
-SEQ_LENGTH = 20
-HIDDEN_SIZE = 100
+    # Eventually clear the log dir.
+    if tf.gfile.Exists(LOG_DIR):
+      tf.gfile.DeleteRecursively(LOG_DIR)
+    # Create (new) log dir.
+    tf.gfile.MakeDirs(LOG_DIR)
 
-# Eventually clear the log dir.
-if tf.gfile.Exists(LOG_DIR):
-  tf.gfile.DeleteRecursively(LOG_DIR)
-# Create (new) log dir.
-tf.gfile.MakeDirs(LOG_DIR)
+    [data,  data_size, vocab_size, idx_to_vocab, vocab_to_idx] = load_data(FILE_NAME)
 
-[data,  data_size, vocab_size, idx_to_vocab, vocab_to_idx] = load_data(FILE_NAME)
+    # Building graph.
+    t1 = time.time()
+    g = build_basic_rnn_graph_with_list(HIDDEN_SIZE, vocab_size, BATCH_SIZE, SEQ_LENGTH)
+    print("It took", time.time() - t1, "seconds to build the graph.")
 
-# Building graph.
-t1 = time.time()
-g = build_basic_rnn_graph_with_list(HIDDEN_SIZE, vocab_size, BATCH_SIZE, SEQ_LENGTH)
-print("It took", time.time() - t1, "seconds to build the graph.")
+    # Determine how long to perform the training and how often the test loss on validation batch will be computed. 
+    summary_frequency = 100
+    num_steps = 1e4 
 
-# Determine how long to perform the training and how often the test loss on validation batch will be computed. 
-summary_frequency = 100
-num_steps = 1e4 
-
-t2 = time.time()
-train_network(g, num_steps,  summary_frequency, BATCH_SIZE,  SEQ_LENGTH)
-print("It took", time.time() - t2, "seconds to train.")
-
-
+    t2 = time.time()
+    train_network(g, num_steps,  summary_frequency, BATCH_SIZE,  SEQ_LENGTH)
+    print("It took", time.time() - t2, "seconds to train.")
 
 
