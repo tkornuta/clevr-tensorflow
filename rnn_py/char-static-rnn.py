@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import time
 
-from simpleRNNCell import SimpleRNNCell
+from models.simpleRNNCell import SimpleRNNCell
 
 
 def build_basic_rnn_graph_with_list(
